@@ -22,5 +22,5 @@ int main() {
 	for (int i = 0; i < 256; ++i) {
 		v.push_back(i);
 	}
-	ma.NewMy(v);
+	ma.MyNotify(v);
 }
