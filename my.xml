@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<node name="/org/my">
+  <interface name="org.bluez.my">
+    <method name="NewMy">
+      <arg type="ay" name="bytes" direction="in"/>
+    </method>
+  </interface>
+</node>
