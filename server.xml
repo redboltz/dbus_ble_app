@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<node name="/org/myapp/server">
+  <interface name="org.myapp.server">
+    <method name="write">
+      <arg type="ay" name="bytes" direction="in"/>
+    </method>
+    <method name="read">
+      <arg type="ay" name="bytes" direction="out"/>
+    </method>
+  </interface>
+</node>
