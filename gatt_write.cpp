@@ -26,7 +26,7 @@ extern "C" {
 
 static GIOChannel *iochannel = NULL;
 
-int const handle = 0xbeef;
+int const handle = 0x000b;
 
 static GMainLoop *event_loop;
 
@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
 		std::istreambuf_iterator<char>());
 
 	uint8_t dest_type = BDADDR_LE_PUBLIC; // OR BDADDR_RANDOM
-	BtIOSecLevel sec = BT_IO_SEC_MEDIUM;  // OR BT_IO_SEC_HIGH, BT_IO_SEC_LOW
+	BtIOSecLevel sec = BT_IO_SEC_LOW;  // OR BT_IO_SEC_HIGH, BT_IO_SEC_LOW
 
 	GIOChannel* chan = bt_io_connect(
 		connect_cb, &content, NULL, &gerr,
