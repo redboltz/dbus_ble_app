@@ -26,8 +26,6 @@ extern "C" {
 
 static GIOChannel *iochannel = NULL;
 
-int const handle = 0x000b;
-
 static GMainLoop *event_loop;
 
 #if TK_TMP
@@ -97,6 +95,11 @@ static void cmd_mtu(int argcp, char **argvp)
 
 #endif
 
+struct user_data_t {
+	int handle;
+	std::vector<std::uint8_t>& content;
+};
+
 static void gatt_write_char_cb(
 	guint8 status,
 	guint8 const* pdu,
@@ -122,24 +125,24 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data) {
 		std::cout <<  err->message << std::endl;
 		return;
 	}
-	std::vector<std::uint8_t>* content = static_cast<std::vector<std::uint8_t>*>(user_data);
+	user_data_t* ud = static_cast<user_data_t*>(user_data);
 	GAttrib* attrib = g_attrib_new(io);
 	gatt_write_char(
 		attrib,
-		handle,
-		content->data(),
-		content->size(),
+		ud->handle,
+		ud->content.data(),
+		ud->content.size(),
 		gatt_write_char_cb,
 		NULL);
 }
 
-//          0    1        2        3
-// gatt_write hci0 destaddr filename
+//          0    1        2      3        4
+// gatt_write hci0 destaddr handle filename
 int main(int argc, char *argv[])
 {
-	if (argc != 4) {
-		std::cout << "Usage: " << argv[0] << " adapter destaddr filename" << std::endl;
-		std::cout << "e.g.): " << argv[0] << " hci0 01:23:45:67:89:AB test.txt" << std::endl;
+	if (argc != 5) {
+		std::cout << "Usage: " << argv[0] << " adapter destaddr handle filename" << std::endl;
+		std::cout << "e.g.): " << argv[0] << " hci0 01:23:45:67:89:AB 0x000b test.txt" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -156,7 +159,8 @@ int main(int argc, char *argv[])
 	bdaddr_t dba;
 	str2ba(dst, &dba);
 
-	char const* fn = argv[3];
+	int handle = std::strtol(argv[3], nullptr, 0);
+	char const* fn = argv[4];
 	std::ifstream ifs(fn, std::ifstream::in | std::ifstream::binary);
 	std::vector<std::uint8_t> content = std::vector<std::uint8_t>(
 		std::istreambuf_iterator<char>(ifs),
@@ -165,8 +169,9 @@ int main(int argc, char *argv[])
 	uint8_t dest_type = BDADDR_LE_PUBLIC; // OR BDADDR_RANDOM
 	BtIOSecLevel sec = BT_IO_SEC_LOW;  // OR BT_IO_SEC_HIGH, BT_IO_SEC_LOW
 
+	user_data_t ud { handle , content };
 	GIOChannel* chan = bt_io_connect(
-		connect_cb, &content, NULL, &gerr,
+		connect_cb, &ud, NULL, &gerr,
 		BT_IO_OPT_SOURCE_BDADDR, &sba,
 		BT_IO_OPT_SOURCE_TYPE, BDADDR_LE_PUBLIC,
 		BT_IO_OPT_DEST_BDADDR, &dba,
