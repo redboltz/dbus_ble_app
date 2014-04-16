@@ -27,7 +27,7 @@ private:
 			if (index % 8 == 0) {
 				std::cout << ' ';
 			}
-			std::cout << (boost::format(" %02x") % val);
+			std::cout << (boost::format(" %02x") % static_cast<unsigned int>(val));
 			++index;
 		}
 		std::cout << std::endl;
