@@ -2,6 +2,7 @@
 #include <signal.h>
 #include <iostream>
 #include <iterator>
+#include <boost/format.hpp>
 
 class my_app:
 	public org::myapp::server_adaptor,
@@ -13,8 +14,25 @@ public:
 private:
 	void write(const std::vector<uint8_t>& bytes) override {
 		std::cout << "write called" << std::endl;
-		std::cout << std::hex;
+		std::cout << "[hex dump]" << std::endl;
 		std::copy(bytes.begin(), bytes.end(), std::ostream_iterator<int>(std::cout, " "));
+
+		std::cout << std::hex;
+		std::size_t index = 0;
+		for (uint8_t val : bytes) {
+			if (index % 16 == 0) {
+				std::cout << std::endl;
+				std::cout << (boost::format("%08x:") % index);
+			}
+			if (index % 8 == 0) {
+				std::cout << ' ';
+			}
+			std::cout << ' ' << val;
+			++index;
+		}
+		std::cout << std::endl;
+		std::cout << "[text out]" << std::endl;
+		std::copy(bytes.begin(), bytes.end(), std::ostream_iterator<char>(std::cout, ""));
 		std::cout << std::endl;
 	}
 	std::vector<uint8_t> read() override {
