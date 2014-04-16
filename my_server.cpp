@@ -15,8 +15,6 @@ private:
 	void write(const std::vector<uint8_t>& bytes) override {
 		std::cout << "write called" << std::endl;
 		std::cout << "[hex dump]" << std::endl;
-		std::copy(bytes.begin(), bytes.end(), std::ostream_iterator<int>(std::cout, " "));
-
 		std::cout << std::hex;
 		std::size_t index = 0;
 		for (uint8_t val : bytes) {
@@ -27,7 +25,7 @@ private:
 			if (index % 8 == 0) {
 				std::cout << ' ';
 			}
-			std::cout << (boost::format(" %02x") % static_cast<unsigned int>(val));
+			std::cout << (boost::format("%02x ") % static_cast<unsigned int>(val));
 			++index;
 		}
 		std::cout << std::endl;
