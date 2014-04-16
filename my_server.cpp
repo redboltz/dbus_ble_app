@@ -27,7 +27,7 @@ private:
 			if (index % 8 == 0) {
 				std::cout << ' ';
 			}
-			std::cout << ' ' << val;
+			std::cout << (boost::format(" %02x") % val);
 			++index;
 		}
 		std::cout << std::endl;
