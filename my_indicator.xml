@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<node name="/org/bluez/my">
+  <interface name="org.bluez.my">
+    <method name="MyIndicate">
+      <arg type="ay" name="bytes" direction="in"/>
+    </method>
+    <method name="GetMtu">
+      <arg type="u" name="mtu" direction="out"/>
+    </method>
+  </interface>
+</node>

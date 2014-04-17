@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<node name="/org/myapp/server">
+  <interface name="org.myapp.server">
+    <method name="confirm">
+    </method>
+  </interface>
+</node>

@@ -28,76 +28,11 @@ static GIOChannel *iochannel = NULL;
 
 static GMainLoop *event_loop;
 
-#if TK_TMP
-
-disconnect() {
-	g_io_channel_shutdown(iochannel, FALSE, NULL);
-	g_io_channel_unref(iochannel);
-	iochannel = NULL;
-
-	set_state(STATE_DISCONNECTED);
-}
-
-static void exchange_mtu_cb(guint8 status, const guint8 *pdu, guint16 plen,
-							gpointer user_data)
-{
-	uint16_t mtu;
-
-	if (status != 0) {
-		std::cout << "Exchange MTU Request failed: " << att_ecode2str(status) << std::endl;
-		return;
-	}
-
-	if (!dec_mtu_resp(pdu, plen, &mtu)) {
-		std::cout << "Protocol error" << std::endl;
-		return;
-	}
-
-	mtu = MIN(mtu, opt_mtu);
-	/* Set new value for MTU in client */
-	if (g_attrib_set_mtu(attrib, mtu))
-		rl_printf("MTU was exchanged successfully: %d\n", mtu);
-	else
-		std::cout << "Error exchanging MTU" << std::endl; 
-}
-
-static void cmd_mtu(int argcp, char **argvp)
-{
-	if (conn_state != STATE_CONNECTED) {
-		failed("Disconnected\n");
-		return;
-	}
-
-	if (opt_psm) {
-		failed("Operation is only available for LE transport.\n");
-		return;
-	}
-
-	if (argcp < 2) {
-		rl_printf("Usage: mtu <value>\n");
-		return;
-	}
-
-	if (opt_mtu) {
-		failed("MTU exchange can only occur once per connection.\n");
-		return;
-	}
-
-	errno = 0;
-	opt_mtu = strtoll(argvp[1], NULL, 0);
-	if (errno != 0 || opt_mtu < ATT_DEFAULT_LE_MTU) {
-		std::cout << "Invalid value. Minimum MTU size is " << ATT_DEFAULT_LE_MTU;
-		return;
-	}
-
-	gatt_exchange_mtu(attrib, opt_mtu, exchange_mtu_cb, NULL);
-}
-
-#endif
-
 struct user_data_t {
 	int handle;
 	std::vector<std::uint8_t>& content;
+	uint16_t mtu;
+	GAttrib* attrib;
 };
 
 static void gatt_write_char_cb(
@@ -106,7 +41,7 @@ static void gatt_write_char_cb(
 	guint16 plen,
 	gpointer user_data) {
 	if (status != 0) {
-		std::cout << "Characteristic Write Request failed: " << att_ecode2str(static_cast<uint8_t>(status)) << std::endl;
+		std::cout << "Characteristic Write Request failed: " << att_ecode2str(status) << std::endl;
 		goto done;
 	}
 
@@ -120,6 +55,45 @@ done:
 	g_main_loop_quit(event_loop);
 }
 
+static void exchange_mtu_cb(
+	guint8 status,
+	guint8 const* pdu,
+	guint16 plen,
+	gpointer user_data)
+{
+	uint16_t mtu;
+
+	if (status != 0) {
+		std::cout << "Exchange MTU Request failed: " << att_ecode2str(status) << std::endl;
+		g_main_loop_quit(event_loop);
+		return;
+	}
+
+	if (!dec_mtu_resp(pdu, plen, &mtu)) {
+		std::cout << "Protocol error" << std::endl;
+		g_main_loop_quit(event_loop);
+		return;
+	}
+	user_data_t* ud = static_cast<user_data_t*>(user_data);
+
+	mtu = std::min(mtu, ud->mtu);
+	/* Set new value for MTU in client */
+	if (g_attrib_set_mtu(ud->attrib, mtu)) {
+		std::cout << "MTU was exchanged successfully:" << mtu << std::endl;
+		gatt_write_char(
+			ud->attrib,
+			ud->handle,
+			ud->content.data(),
+			ud->content.size(),
+			gatt_write_char_cb,
+			nullptr);
+	}
+	else {
+		std::cout << "Error exchanging MTU" << std::endl;
+		g_main_loop_quit(event_loop);
+	}
+}
+
 static void connect_cb(GIOChannel *io, GError *err, gpointer user_data) {
 	if (err) {
 		std::cout <<  err->message << std::endl;
@@ -127,22 +101,22 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data) {
 	}
 	user_data_t* ud = static_cast<user_data_t*>(user_data);
 	GAttrib* attrib = g_attrib_new(io);
-	gatt_write_char(
-		attrib,
-		ud->handle,
-		ud->content.data(),
-		ud->content.size(),
-		gatt_write_char_cb,
-		NULL);
+	if (ud->mtu < ATT_DEFAULT_LE_MTU) {
+		std::cout << "Invalid value. Minimum MTU size is " << ATT_DEFAULT_LE_MTU;
+		g_main_loop_quit(event_loop);
+		return;
+	}
+	ud->attrib = attrib;
+	gatt_exchange_mtu(attrib, ud->mtu, exchange_mtu_cb, ud);
 }
 
-//          0    1        2      3        4
-// gatt_write hci0 destaddr handle filename
+//          0    1        2      3        4   5
+// gatt_write hci0 destaddr handle filename mtu
 int main(int argc, char *argv[])
 {
-	if (argc != 5) {
-		std::cout << "Usage: " << argv[0] << " adapter destaddr handle filename" << std::endl;
-		std::cout << "e.g.): " << argv[0] << " hci0 01:23:45:67:89:AB 0x000b test.txt" << std::endl;
+	if (argc != 5 && argc != 6) {
+		std::cout << "Usage: " << argv[0] << " adapter destaddr handle filename [mtu]" << std::endl;
+		std::cout << "e.g.): " << argv[0] << " hci0 01:23:45:67:89:AB 0x000b test.txt 100" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -169,7 +143,10 @@ int main(int argc, char *argv[])
 	uint8_t dest_type = BDADDR_LE_PUBLIC; // OR BDADDR_RANDOM
 	BtIOSecLevel sec = BT_IO_SEC_LOW;  // OR BT_IO_SEC_HIGH, BT_IO_SEC_LOW
 
-	user_data_t ud { handle , content };
+	user_data_t ud { handle , content, ATT_DEFAULT_LE_MTU };
+	if (argc == 6) {
+		ud.mtu = std::strtol(argv[5], nullptr, 0);
+	}
 	GIOChannel* chan = bt_io_connect(
 		connect_cb, &ud, NULL, &gerr,
 		BT_IO_OPT_SOURCE_BDADDR, &sba,
