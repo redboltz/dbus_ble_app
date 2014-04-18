@@ -31,7 +31,7 @@ static GMainLoop *event_loop;
 
 struct user_data_t {
 	int handle;
-	std::vector<std::uint8_t>& content;
+	uint16_t value;
 	uint16_t mtu;
 	GAttrib* attrib;
 };
@@ -140,8 +140,8 @@ static void exchange_mtu_cb(
 		gatt_write_char(
 			ud->attrib,
 			ud->handle,
-			ud->content.data(),
-			ud->content.size(),
+			reinterpret_cast<uint8_t const*>(&ud->value),
+			sizeof(ud->value),
 			gatt_write_char_cb,
 			nullptr);
 	}
@@ -197,16 +197,12 @@ int main(int argc, char *argv[])
 	str2ba(dst, &dba);
 
 	int handle = std::strtol(argv[3], nullptr, 0);
-	char const* fn = argv[4];
-	std::ifstream ifs(fn, std::ifstream::in | std::ifstream::binary);
-	std::vector<std::uint8_t> content = std::vector<std::uint8_t>(
-		std::istreambuf_iterator<char>(ifs),
-		std::istreambuf_iterator<char>());
+	uint16_t value = std::strtol(argv[4], nullptr, 0);
 
 	uint8_t dest_type = BDADDR_LE_PUBLIC; // OR BDADDR_RANDOM
 	BtIOSecLevel sec = BT_IO_SEC_LOW;  // OR BT_IO_SEC_HIGH, BT_IO_SEC_LOW
 
-	user_data_t ud { handle , content, ATT_DEFAULT_LE_MTU };
+	user_data_t ud { handle, value, ATT_DEFAULT_LE_MTU };
 	if (argc == 6) {
 		ud.mtu = std::strtol(argv[5], nullptr, 0);
 	}
