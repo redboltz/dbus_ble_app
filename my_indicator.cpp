@@ -1,8 +1,13 @@
+// g++ -std=c++11 my_indicator.cpp -I. -I/usr/include/dbus-c++-1 -ldbus-c++-1 -o indicator
+
 #include "my_indicator.h"
 #include "my_confirm.h"
 
 #include <signal.h>
 #include <iostream>
+#include <thread>
+
+DBus::BusDispatcher dispatcher;
 
 class my_app:
 	public org::myapp::server_adaptor,
@@ -12,9 +17,9 @@ class my_app:
 
 {
 public:
-	my_app(DBus::Connection &connection, const char *send_path, const char *send_name, const char *recv_path)
-		:DBus::ObjectAdaptor(connection, recv_path)
-		,DBus::ObjectProxy(connection, send_path, send_name) {
+	my_app(DBus::Connection &send_conn, const char *send_path, const char *send_name, DBus::Connection &recv_conn, const char *recv_path)
+		:DBus::ObjectAdaptor(recv_conn, recv_path)
+		,DBus::ObjectProxy(send_conn, send_path, send_name) {
 
 		std::size_t mtu = GetMtu();
 		std::cout << "MTU: " << mtu << std::endl;
@@ -23,14 +28,19 @@ public:
 	}
 	void confirm() override {
 		std::cout << "confirm received. rest: " << rest_ << std::endl;
-		if (rest_ == 0) return;
-		indicate_imp();
+		thread_.join();
+		if (rest_ == 0) {
+			dispatcher.leave();
+			return;
+		}
+		// To avoid dbus return message's deadlock.
+		thread_ = std::thread(&my_app::indicate_imp, this);
 	}
 	void indicate(std::vector<std::uint8_t> const& v) {
 		it_ = v.cbegin();
 		end_ = v.cend();
 		rest_ = std::distance(it_, end_);
-		indicate_imp();
+		thread_ = std::thread(&my_app::indicate_imp, this);
 	}
 private:
 	void indicate_imp() {
@@ -49,9 +59,8 @@ private:
 	typename std::vector<std::uint8_t>::const_iterator end_;
 	std::size_t unit_;
 	std::size_t rest_;
+	std::thread thread_;
 };
-
-DBus::BusDispatcher dispatcher;
 
 void niam(int sig)
 {
@@ -62,11 +71,16 @@ int main() {
 	signal(SIGTERM, niam);
 	signal(SIGINT, niam);
 
-	DBus::default_dispatcher = &dispatcher;
-	DBus::Connection conn = DBus::Connection::SystemBus();
+	DBus::BusDispatcher send_dispatcher;
+	DBus::default_dispatcher = &send_dispatcher;
+	DBus::Connection send_conn = DBus::Connection::SystemBus();
 
-	my_app ma(conn, "/org/bluez/my", "org.bluez", "/org/myapp/server");
-	conn.request_name("org.myapp");
+	DBus::default_dispatcher = &dispatcher;
+	DBus::Connection recv_conn = DBus::Connection::SystemBus();
+
+	my_app ma(send_conn, "/org/bluez/my", "org.bluez",
+			  recv_conn, "/org/myapp/server");
+	recv_conn.request_name("org.myapp");
 
 	std::vector<std::uint8_t> v;
 	// prepare
