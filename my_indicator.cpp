@@ -71,11 +71,9 @@ int main() {
 	signal(SIGTERM, niam);
 	signal(SIGINT, niam);
 
-	DBus::BusDispatcher send_dispatcher;
-	DBus::default_dispatcher = &send_dispatcher;
-	DBus::Connection send_conn = DBus::Connection::SystemBus();
-
 	DBus::default_dispatcher = &dispatcher;
+
+	DBus::Connection send_conn = DBus::Connection::SystemBus();
 	DBus::Connection recv_conn = DBus::Connection::SystemBus();
 
 	my_app ma(send_conn, "/org/bluez/my", "org.bluez",
