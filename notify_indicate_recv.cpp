@@ -34,7 +34,16 @@ struct user_data_t {
 	uint16_t value;
 	uint16_t mtu;
 	GAttrib* attrib;
+	GIOChannel* chan;
 };
+
+static void disconnect(GAttrib* attrib, GIOChannel* chan)
+{
+	g_attrib_unref(attrib);
+
+	g_io_channel_shutdown(chan, FALSE, NULL);
+	g_io_channel_unref(chan);
+}
 
 static void notify_cb(
 	const uint8_t *pdu,
@@ -69,12 +78,12 @@ static void indicate_cb(
 	}
 	uint16_t handle = (pdu[2] << 8) | pdu[1];
 	std::cout << (boost::format("Indicate from %04x") % handle) << std::endl;
-	for (std::size_t index = 3; index < len; ++index) {
-		if (index % 16 == 0) {
+	for (std::size_t index = 3, address = 0; index < len; ++index, ++address) {
+		if (address % 16 == 0) {
 			std::cout << std::endl;
-			std::cout << (boost::format("%08x:") % index);
+			std::cout << (boost::format("%08x:") % address);
 		}
-		if (index % 8 == 0) {
+		if (address % 8 == 0) {
 			std::cout << ' ';
 		}
 		std::cout << (boost::format("%02x ") % static_cast<unsigned int>(pdu[index]));
@@ -109,6 +118,8 @@ static void gatt_write_char_cb(
 	std::cout << "Characteristic value was written successfully" << std::endl;
 	return;
 done:
+	user_data_t* ud = static_cast<user_data_t*>(user_data);
+	disconnect(ud->attrib, ud->chan);
 	g_main_loop_quit(event_loop);
 }
 
@@ -119,19 +130,21 @@ static void exchange_mtu_cb(
 	gpointer user_data)
 {
 	uint16_t mtu;
+	user_data_t* ud = static_cast<user_data_t*>(user_data);
 
 	if (status != 0) {
 		std::cout << "Exchange MTU Request failed: " << att_ecode2str(status) << std::endl;
+		disconnect(ud->attrib, ud->chan);
 		g_main_loop_quit(event_loop);
 		return;
 	}
 
 	if (!dec_mtu_resp(pdu, plen, &mtu)) {
 		std::cout << "Protocol error" << std::endl;
+		disconnect(ud->attrib, ud->chan);
 		g_main_loop_quit(event_loop);
 		return;
 	}
-	user_data_t* ud = static_cast<user_data_t*>(user_data);
 
 	mtu = std::min(mtu, ud->mtu);
 	/* Set new value for MTU in client */
@@ -147,6 +160,7 @@ static void exchange_mtu_cb(
 	}
 	else {
 		std::cout << "Error exchanging MTU" << std::endl;
+		disconnect(ud->attrib, ud->chan);
 		g_main_loop_quit(event_loop);
 	}
 }
@@ -165,6 +179,7 @@ static void connect_cb(GIOChannel *io, GError *err, gpointer user_data) {
 
 	if (ud->mtu < ATT_DEFAULT_LE_MTU) {
 		std::cout << "Invalid value. Minimum MTU size is " << ATT_DEFAULT_LE_MTU;
+		disconnect(ud->attrib, ud->chan);
 		g_main_loop_quit(event_loop);
 		return;
 	}
@@ -206,7 +221,7 @@ int main(int argc, char *argv[])
 	if (argc == 6) {
 		ud.mtu = std::strtol(argv[5], nullptr, 0);
 	}
-	GIOChannel* chan = bt_io_connect(
+	ud.chan = bt_io_connect(
 		connect_cb, &ud, NULL, &gerr,
 		BT_IO_OPT_SOURCE_BDADDR, &sba,
 		BT_IO_OPT_SOURCE_TYPE, BDADDR_LE_PUBLIC,
@@ -216,7 +231,7 @@ int main(int argc, char *argv[])
 		BT_IO_OPT_SEC_LEVEL, sec,
 		BT_IO_OPT_INVALID);
 
-	if (chan == NULL) {
+	if (ud.chan == NULL) {
 		std::cout <<  gerr->message << std::endl;
 		exit(EXIT_FAILURE);
 	}

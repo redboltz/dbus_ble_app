@@ -36,10 +36,10 @@ int main() {
 
 	my_app ma(conn, "/org/bluez/my", "org.bluez");
 
-	std::vector<std::uint8_t> v { 'k', 'o', 'n', 'd', 'o' };
+	std::vector<std::uint8_t> v; // { 'k', 'o', 'n', 'd', 'o' };
 	// prepare
-	// for (int i = 0; i < 256; ++i) {
-	// 	v.push_back(i);
-	// }
+	for (int i = 0; i < 256; ++i) {
+		v.push_back(i);
+	}
 	notify(ma, v);
 }
