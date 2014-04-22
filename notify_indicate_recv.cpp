@@ -54,13 +54,13 @@ static void notify_cb(
 		return;
 	}
 	uint16_t handle = (pdu[2] << 8) | pdu[1];
-	std::cout << (boost::format("Notify from %04x") % handle) << std::endl;
-	for (std::size_t index = 3; index < len; ++index) {
-		if (index % 16 == 0) {
+	std::cout << (boost::format("Notify from %04x length:%d") % handle % len) << std::endl;
+	for (std::size_t index = 3, address = 0; index < len; ++index, ++address) {
+		if (address % 16 == 0) {
 			std::cout << std::endl;
-			std::cout << (boost::format("%08x:") % index);
+			std::cout << (boost::format("%08x:") % address);
 		}
-		if (index % 8 == 0) {
+		if (address % 8 == 0) {
 			std::cout << ' ';
 		}
 		std::cout << (boost::format("%02x ") % static_cast<unsigned int>(pdu[index]));
@@ -77,7 +77,7 @@ static void indicate_cb(
 		return;
 	}
 	uint16_t handle = (pdu[2] << 8) | pdu[1];
-	std::cout << (boost::format("Indicate from %04x") % handle) << std::endl;
+	std::cout << (boost::format("Indicate from %04x length:%d") % handle % len) << std::endl;
 	for (std::size_t index = 3, address = 0; index < len; ++index, ++address) {
 		if (address % 16 == 0) {
 			std::cout << std::endl;
