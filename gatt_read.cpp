@@ -34,26 +34,6 @@ struct user_data_t {
 	GAttrib* attrib;
 };
 
-static void gatt_write_char_cb(
-	guint8 status,
-	guint8 const* pdu,
-	guint16 plen,
-	gpointer user_data) {
-	if (status != 0) {
-		std::cout << "Characteristic Write Request failed: " << att_ecode2str(status) << std::endl;
-		goto done;
-	}
-
-	if (!dec_write_resp(pdu, plen) && !dec_exec_write_resp(pdu, plen)) {
-		std::cout << "Protocol error" << std::endl;
-		goto done;
-	}
-
-	std::cout << "Characteristic value was written successfully" << std::endl;
-done:
-	g_main_loop_quit(event_loop);
-}
-
 
 static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 							gpointer user_data)
