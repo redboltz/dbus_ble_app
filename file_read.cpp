@@ -63,11 +63,12 @@ static void char_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 		return;
 	}
 	msgpack::unpacked result;
-	msgpack::unpack(result, reinterpret_cast<char const*>(value), plen);
+	msgpack::unpack(result, reinterpret_cast<char const*>(value), vlen);
 	fname_content fc;
 	result.get().convert(fc);
 	std::ofstream ofs(fc.fname, std::ofstream::out | std::ifstream::binary);
 	ofs.write(reinterpret_cast<char const*>(fc.content.data()), fc.content.size());
+	g_main_loop_quit(event_loop);
 }
 
 
