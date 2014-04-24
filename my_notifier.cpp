@@ -12,10 +12,8 @@ public:
 };
 
 void notify(my_app& ma, std::vector<std::uint8_t> const& v) {
-	std::size_t mtu = ma.GetMtu();
-	std::cout << "MTU: " << mtu << std::endl;
-	std::size_t header = sizeof(std::uint16_t) + sizeof(std::uint8_t);
-	std::size_t unit = mtu - header;
+	std::size_t unit = ma.GetMaxPayloadSize();
+	std::cout << "unit: " << unit << std::endl;
 	auto b = v.cbegin();
 	auto e = v.cend();
 	auto rest = std::distance(b, e);

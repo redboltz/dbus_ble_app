@@ -21,10 +21,8 @@ public:
 		:DBus::ObjectAdaptor(recv_conn, recv_path)
 		,DBus::ObjectProxy(send_conn, send_path, send_name) {
 
-		std::size_t mtu = GetMtu();
-		std::cout << "MTU: " << mtu << std::endl;
-		std::size_t header = sizeof(std::uint16_t) + sizeof(std::uint8_t);
-		unit_ = mtu - header;
+		unit_ = GetMaxPayloadSize();
+		std::cout << "unit: " << unit_ << std::endl;
 	}
 	void confirm() override {
 		std::cout << "confirm received. rest: " << rest_ << std::endl;

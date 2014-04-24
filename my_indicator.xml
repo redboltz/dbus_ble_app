@@ -4,8 +4,8 @@
     <method name="MyIndicate">
       <arg type="ay" name="bytes" direction="in"/>
     </method>
-    <method name="GetMtu">
-      <arg type="u" name="mtu" direction="out"/>
+    <method name="GetMaxPayloadSize">
+      <arg type="u" name="size" direction="out"/>
     </method>
   </interface>
 </node>
